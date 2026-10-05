@@ -6,6 +6,7 @@ import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { AuthModule } from './auth/auth.module.js';
 import { TransactionsModule } from './transactions/transactions.module.js';
+import { UsersModule } from './users/users.module.js';
 
 @Module({
   imports: [
@@ -35,6 +36,8 @@ import { TransactionsModule } from './transactions/transactions.module.js';
     AuthModule,
 
     TransactionsModule,
+
+    UsersModule,
   ],
 
   controllers: [AppController],
