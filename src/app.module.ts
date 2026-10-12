@@ -7,6 +7,7 @@ import { AppService } from './app.service.js';
 import { AccountsModule } from './accounts/accounts.module.js';
 import { CategoriesModule } from './categories/categories.module.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
+import { BudgetsModule } from './budgets/budgets.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { TransactionsModule } from './transactions/transactions.module.js';
 import { UsersModule } from './users/users.module.js';
@@ -47,6 +48,8 @@ import { UsersModule } from './users/users.module.js';
     UsersModule,
 
     DashboardModule,
+
+    BudgetsModule,
   ],
 
   controllers: [AppController],
