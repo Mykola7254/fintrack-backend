@@ -4,6 +4,7 @@ import {
     IsInt,
     IsNumber,
     IsOptional,
+    IsPositive,
     IsString,
 } from 'class-validator';
 
@@ -17,7 +18,8 @@ export class UpdateTransactionDto {
     category_id?: number;
 
     @IsOptional()
-    @IsNumber()
+    @IsNumber({ maxDecimalPlaces: 2 })
+    @IsPositive()
     amount?: number;
 
     @IsOptional()

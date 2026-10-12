@@ -91,4 +91,21 @@ export class AuthService {
             },
         };
     }
+
+    async me(userId: number) {
+        const user = await this.userRepository.findOne({
+            where: { id: userId },
+        });
+
+        if (!user) {
+            throw new UnauthorizedException('User not found');
+        }
+
+        return {
+            id: user.id,
+            full_name: user.full_name,
+            email: user.email,
+            created_at: user.created_at,
+        };
+    }
 }
