@@ -1,10 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+    BadRequestException,
+    Injectable,
+    NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { CreateTransactionDto } from './dto/create-transaction.dto.js';
 import { UpdateTransactionDto } from './dto/update-transaction.dto.js';
 import { Transaction } from './entities/transaction.entity.js';
 import { Account } from '../accounts/entities/account.entity.js';
+import { Category } from '../categories/entities/category.entity.js';
 
 @Injectable()
 export class TransactionsService {
@@ -23,6 +28,13 @@ export class TransactionsService {
                 manager,
                 userId,
                 createTransactionDto.account_id,
+            );
+
+            await this.assertCategoryUsable(
+                manager,
+                userId,
+                createTransactionDto.category_id,
+                createTransactionDto.type,
             );
 
             const transaction = manager.create(Transaction, {
@@ -108,6 +120,13 @@ export class TransactionsService {
                 transaction.comment = updateTransactionDto.comment;
             }
 
+            await this.assertCategoryUsable(
+                manager,
+                userId,
+                transaction.category_id,
+                transaction.type,
+            );
+
             await manager.save(transaction);
 
             await this.applyToBalance(manager, transaction, 1);
@@ -156,6 +175,36 @@ export class TransactionsService {
         }
     }
 
+    private async assertCategoryUsable(
+        manager: EntityManager,
+        userId: number,
+        categoryId: number | null | undefined,
+        type: 'income' | 'expense',
+    ): Promise<void> {
+        if (categoryId === null || categoryId === undefined) {
+            return;
+        }
+
+        const category = await manager
+            .createQueryBuilder(Category, 'category')
+            .where('category.id = :categoryId', { categoryId })
+            .andWhere(
+                '(category.user_id IS NULL OR category.user_id = :userId)',
+                { userId },
+            )
+            .getOne();
+
+        if (!category) {
+            throw new NotFoundException('Category not found');
+        }
+
+        if (category.type !== type) {
+            throw new BadRequestException(
+                `Category type "${category.type}" does not match transaction type "${type}"`,
+            );
+        }
+    }
+
     // sign = 1 застосовує транзакцію до балансу, sign = -1 відкочує
     private async applyToBalance(
         manager: EntityManager,
@@ -167,7 +216,7 @@ export class TransactionsService {
 
         await manager.increment(
             Account,
-            { id: transaction.account_id },
+            { id: transaction.account_id, user_id: transaction.user_id },
             'balance',
             delta,
         );
