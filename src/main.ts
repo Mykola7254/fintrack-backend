@@ -19,22 +19,25 @@ async function bootstrap(): Promise<void> {
         }),
     );
 
-    // Документація API: http://localhost:3000/api/docs
-    const swaggerConfig = new DocumentBuilder()
-        .setTitle('FinTrack API')
-        .setDescription('Backend API для мобільного застосунку FinTrack')
-        .setVersion('1.0')
-        .addBearerAuth()
-        .addSecurityRequirements('bearer')
-        .build();
-
-    SwaggerModule.setup(
-        'api/docs',
-        app,
-        SwaggerModule.createDocument(app, swaggerConfig),
-    );
-
     const configService = app.get(ConfigService);
+
+    // Документація API: http://localhost:3000/api/docs (вимкнена в production)
+    if (configService.get<string>('NODE_ENV') !== 'production') {
+        const swaggerConfig = new DocumentBuilder()
+            .setTitle('FinTrack API')
+            .setDescription('Backend API для мобільного застосунку FinTrack')
+            .setVersion('1.0')
+            .addBearerAuth()
+            .addSecurityRequirements('bearer')
+            .build();
+
+        SwaggerModule.setup(
+            'api/docs',
+            app,
+            SwaggerModule.createDocument(app, swaggerConfig),
+        );
+    }
+
     const port = configService.get<number>('PORT', 3000);
 
     await app.listen(port);
