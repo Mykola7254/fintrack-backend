@@ -8,5 +8,6 @@ import { TransactionsService } from './transactions.service.js';
   imports: [TypeOrmModule.forFeature([Transaction])],
   providers: [TransactionsService],
   controllers: [TransactionsController],
+  exports: [TransactionsService],
 })
 export class TransactionsModule {}
