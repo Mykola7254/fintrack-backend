@@ -6,10 +6,21 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { CreateTransactionDto } from './dto/create-transaction.dto.js';
+import { QueryTransactionsDto } from './dto/query-transactions.dto.js';
 import { UpdateTransactionDto } from './dto/update-transaction.dto.js';
 import { Transaction } from './entities/transaction.entity.js';
 import { Account } from '../accounts/entities/account.entity.js';
 import { Category } from '../categories/entities/category.entity.js';
+
+export interface PaginatedTransactions {
+    data: Transaction[];
+    meta: {
+        total: number;
+        page: number;
+        limit: number;
+        total_pages: number;
+    };
+}
 
 @Injectable()
 export class TransactionsService {
@@ -59,17 +70,69 @@ export class TransactionsService {
         return this.findOne(userId, id);
     }
 
-    async findAll(userId: number): Promise<Transaction[]> {
-        return this.transactionsRepository.find({
-            where: { user_id: userId },
-            order: { transaction_date: 'DESC' },
-        });
+    async findAll(
+        userId: number,
+        query: QueryTransactionsDto,
+    ): Promise<PaginatedTransactions> {
+        const qb = this.withRelations(userId);
+
+        if (query.type) {
+            qb.andWhere('transaction.type = :type', { type: query.type });
+        }
+
+        if (query.category_id) {
+            qb.andWhere('transaction.category_id = :categoryId', {
+                categoryId: query.category_id,
+            });
+        }
+
+        if (query.account_id) {
+            qb.andWhere('transaction.account_id = :accountId', {
+                accountId: query.account_id,
+            });
+        }
+
+        if (query.from) {
+            qb.andWhere('transaction.transaction_date >= :from', {
+                from: this.parseDate(query.from),
+            });
+        }
+
+        if (query.to) {
+            qb.andWhere('transaction.transaction_date < :to', {
+                to: this.parseDate(query.to, 1),
+            });
+        }
+
+        if (query.search) {
+            qb.andWhere(
+                '(transaction.comment LIKE :search OR category.name LIKE :search)',
+                { search: `%${query.search}%` },
+            );
+        }
+
+        const [data, total] = await qb
+            .orderBy('transaction.transaction_date', 'DESC')
+            .addOrderBy('transaction.id', 'DESC')
+            .skip((query.page - 1) * query.limit)
+            .take(query.limit)
+            .getManyAndCount();
+
+        return {
+            data,
+            meta: {
+                total,
+                page: query.page,
+                limit: query.limit,
+                total_pages: Math.ceil(total / query.limit),
+            },
+        };
     }
 
     async findOne(userId: number, id: number): Promise<Transaction> {
-        const transaction = await this.transactionsRepository.findOne({
-            where: { id, user_id: userId },
-        });
+        const transaction = await this.withRelations(userId)
+            .andWhere('transaction.id = :id', { id })
+            .getOne();
 
         if (!transaction) {
             throw new NotFoundException('Transaction not found');
@@ -143,6 +206,37 @@ export class TransactionsService {
 
             await manager.remove(transaction);
         });
+    }
+
+    private withRelations(userId: number) {
+        return this.transactionsRepository
+            .createQueryBuilder('transaction')
+            .leftJoin('transaction.category', 'category')
+            .addSelect([
+                'category.id',
+                'category.name',
+                'category.type',
+                'category.icon_name',
+                'category.color_code',
+            ])
+            .leftJoin('transaction.account', 'account')
+            .addSelect(['account.id', 'account.name', 'account.type'])
+            .where('transaction.user_id = :userId', { userId });
+    }
+
+    // Дата без часу ("2026-09-30") — це локальна північ; для `to` включає весь день
+    private parseDate(value: string, dayOffset = 0): Date {
+        const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+
+        if (!match) {
+            return new Date(value);
+        }
+
+        return new Date(
+            Number(match[1]),
+            Number(match[2]) - 1,
+            Number(match[3]) + dayOffset,
+        );
     }
 
     private async findOwned(

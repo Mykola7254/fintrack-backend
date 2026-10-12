@@ -1,8 +1,12 @@
 import {
     Column,
     Entity,
+    JoinColumn,
+    ManyToOne,
     PrimaryGeneratedColumn,
 } from 'typeorm';
+import { Account } from '../../accounts/entities/account.entity.js';
+import { Category } from '../../categories/entities/category.entity.js';
 
 @Entity('transactions')
 export class Transaction {
@@ -35,4 +39,12 @@ export class Transaction {
 
     @Column('text', { nullable: true })
     comment: string | null;
+
+    @ManyToOne(() => Account, { onDelete: 'CASCADE' })
+    @JoinColumn({ name: 'account_id' })
+    account?: Account;
+
+    @ManyToOne(() => Category, { onDelete: 'SET NULL', nullable: true })
+    @JoinColumn({ name: 'category_id' })
+    category?: Category | null;
 }

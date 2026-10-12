@@ -8,8 +8,10 @@ import {
     ParseIntPipe,
     Patch,
     Post,
+    Query,
 } from '@nestjs/common';
 import { CreateTransactionDto } from './dto/create-transaction.dto.js';
+import { QueryTransactionsDto } from './dto/query-transactions.dto.js';
 import { UpdateTransactionDto } from './dto/update-transaction.dto.js';
 import { TransactionsService } from './transactions.service.js';
 import { type AuthUser, CurrentUser } from '../auth/current-user.decorator.js';
@@ -29,8 +31,11 @@ export class TransactionsController {
     }
 
     @Get()
-    findAll(@CurrentUser() user: AuthUser) {
-        return this.transactionsService.findAll(user.id);
+    findAll(
+        @CurrentUser() user: AuthUser,
+        @Query() query: QueryTransactionsDto,
+    ) {
+        return this.transactionsService.findAll(user.id, query);
     }
 
     @Get(':id')
