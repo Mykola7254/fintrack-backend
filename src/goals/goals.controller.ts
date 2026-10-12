@@ -9,12 +9,14 @@ import {
     Patch,
     Post,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { CreateContributionDto } from './dto/create-contribution.dto.js';
 import { CreateGoalDto } from './dto/create-goal.dto.js';
 import { UpdateGoalDto } from './dto/update-goal.dto.js';
 import { GoalsService } from './goals.service.js';
 import { type AuthUser, CurrentUser } from '../auth/current-user.decorator.js';
 
+@ApiTags('Goals')
 @Controller('goals')
 export class GoalsController {
     constructor(private readonly goalsService: GoalsService) {}

@@ -10,12 +10,14 @@ import {
     Post,
     Query,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { CategoriesService } from './categories.service.js';
 import { CreateCategoryDto } from './dto/create-category.dto.js';
 import { QueryCategoriesDto } from './dto/query-categories.dto.js';
 import { UpdateCategoryDto } from './dto/update-category.dto.js';
 import { type AuthUser, CurrentUser } from '../auth/current-user.decorator.js';
 
+@ApiTags('Categories')
 @Controller('categories')
 export class CategoriesController {
     constructor(private readonly categoriesService: CategoriesService) {}

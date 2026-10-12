@@ -1,9 +1,11 @@
 import { Body, Controller, Delete, Get, HttpCode, Patch } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { UsersService } from './users.service.js';
 import { ChangePasswordDto } from './dto/change-password.dto.js';
 import { UpdateUserDto } from './dto/update-user.dto.js';
 import { type AuthUser, CurrentUser } from '../auth/current-user.decorator.js';
 
+@ApiTags('Users')
 @Controller('users')
 export class UsersController {
     constructor(private readonly usersService: UsersService) {}

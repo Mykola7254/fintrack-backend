@@ -10,12 +10,14 @@ import {
     Post,
     Query,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { CreateTransactionDto } from './dto/create-transaction.dto.js';
 import { QueryTransactionsDto } from './dto/query-transactions.dto.js';
 import { UpdateTransactionDto } from './dto/update-transaction.dto.js';
 import { TransactionsService } from './transactions.service.js';
 import { type AuthUser, CurrentUser } from '../auth/current-user.decorator.js';
 
+@ApiTags('Transactions')
 @Controller('transactions')
 export class TransactionsController {
     constructor(

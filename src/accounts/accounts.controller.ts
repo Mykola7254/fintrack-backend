@@ -9,11 +9,13 @@ import {
     Patch,
     Post,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { AccountsService } from './accounts.service.js';
 import { CreateAccountDto } from './dto/create-account.dto.js';
 import { UpdateAccountDto } from './dto/update-account.dto.js';
 import { type AuthUser, CurrentUser } from '../auth/current-user.decorator.js';
 
+@ApiTags('Accounts')
 @Controller('accounts')
 export class AccountsController {
     constructor(private readonly accountsService: AccountsService) {}

@@ -9,11 +9,13 @@ import {
     Patch,
     Post,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { BudgetsService } from './budgets.service.js';
 import { CreateBudgetDto } from './dto/create-budget.dto.js';
 import { UpdateBudgetDto } from './dto/update-budget.dto.js';
 import { type AuthUser, CurrentUser } from '../auth/current-user.decorator.js';
 
+@ApiTags('Budgets')
 @Controller('budgets')
 export class BudgetsController {
     constructor(private readonly budgetsService: BudgetsService) {}
