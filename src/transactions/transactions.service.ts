@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateTransactionDto } from './dto/create-transaction.dto.js';
@@ -13,10 +13,11 @@ export class TransactionsService {
     ) {}
 
     async create(
+        userId: number,
         createTransactionDto: CreateTransactionDto,
     ): Promise<Transaction> {
         const transaction = this.transactionsRepository.create({
-            user_id: createTransactionDto.user_id,
+            user_id: userId,
             account_id: createTransactionDto.account_id,
             category_id: createTransactionDto.category_id,
             amount: createTransactionDto.amount.toString(),
@@ -30,41 +31,66 @@ export class TransactionsService {
         return this.transactionsRepository.save(transaction);
     }
 
-    async findAll(userId?: number): Promise<Transaction[]> {
-        if (userId) {
-            return this.transactionsRepository.find({
-                where: { user_id: userId },
-                order: { transaction_date: 'DESC' },
-            });
-        }
-
+    async findAll(userId: number): Promise<Transaction[]> {
         return this.transactionsRepository.find({
+            where: { user_id: userId },
             order: { transaction_date: 'DESC' },
         });
     }
+
+    async findOne(userId: number, id: number): Promise<Transaction> {
+        const transaction = await this.transactionsRepository.findOne({
+            where: { id, user_id: userId },
+        });
+
+        if (!transaction) {
+            throw new NotFoundException('Transaction not found');
+        }
+
+        return transaction;
+    }
+
     async update(
+        userId: number,
         id: number,
         updateTransactionDto: UpdateTransactionDto,
     ): Promise<Transaction> {
-        const updateData = {
-            account_id: updateTransactionDto.account_id,
-            category_id: updateTransactionDto.category_id,
-            amount: updateTransactionDto.amount !== undefined
-                ? updateTransactionDto.amount.toString()
-                : undefined,
-            type: updateTransactionDto.type,
-            transaction_date: updateTransactionDto.transaction_date
-                ? new Date(updateTransactionDto.transaction_date)
-                : undefined,
-            comment: updateTransactionDto.comment,
-        };
+        const transaction = await this.findOne(userId, id);
 
-        await this.transactionsRepository.update(id, updateData);
+        if (updateTransactionDto.account_id !== undefined) {
+            transaction.account_id = updateTransactionDto.account_id;
+        }
 
-        return this.transactionsRepository.findOneByOrFail({ id });
+        if (updateTransactionDto.category_id !== undefined) {
+            transaction.category_id = updateTransactionDto.category_id;
+        }
+
+        if (updateTransactionDto.amount !== undefined) {
+            transaction.amount = updateTransactionDto.amount.toString();
+        }
+
+        if (updateTransactionDto.type !== undefined) {
+            transaction.type = updateTransactionDto.type;
+        }
+
+        if (updateTransactionDto.transaction_date !== undefined) {
+            transaction.transaction_date = new Date(
+                updateTransactionDto.transaction_date,
+            );
+        }
+
+        if (updateTransactionDto.comment !== undefined) {
+            transaction.comment = updateTransactionDto.comment;
+        }
+
+        await this.transactionsRepository.save(transaction);
+
+        return this.findOne(userId, id);
     }
 
-    async remove(id: number): Promise<void> {
-        await this.transactionsRepository.delete(id);
+    async remove(userId: number, id: number): Promise<void> {
+        const transaction = await this.findOne(userId, id);
+
+        await this.transactionsRepository.remove(transaction);
     }
 }

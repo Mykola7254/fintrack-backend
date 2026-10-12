@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+    ConflictException,
+    Injectable,
+    NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UpdateUserDto } from './dto/update-user.dto.js';
@@ -41,7 +45,20 @@ export class UsersService {
             user.full_name = updateUserDto.full_name;
         }
 
-        if (updateUserDto.email !== undefined) {
+        if (
+            updateUserDto.email !== undefined &&
+            updateUserDto.email !== user.email
+        ) {
+            const emailTaken = await this.usersRepository.exists({
+                where: { email: updateUserDto.email },
+            });
+
+            if (emailTaken) {
+                throw new ConflictException(
+                    'User with this email already exists',
+                );
+            }
+
             user.email = updateUserDto.email;
         }
 

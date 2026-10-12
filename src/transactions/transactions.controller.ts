@@ -3,14 +3,16 @@ import {
     Controller,
     Delete,
     Get,
+    HttpCode,
     Param,
+    ParseIntPipe,
     Patch,
     Post,
-    Query,
 } from '@nestjs/common';
 import { CreateTransactionDto } from './dto/create-transaction.dto.js';
 import { UpdateTransactionDto } from './dto/update-transaction.dto.js';
 import { TransactionsService } from './transactions.service.js';
+import { type AuthUser, CurrentUser } from '../auth/current-user.decorator.js';
 
 @Controller('transactions')
 export class TransactionsController {
@@ -19,30 +21,45 @@ export class TransactionsController {
     ) {}
 
     @Post()
-    create(@Body() createTransactionDto: CreateTransactionDto) {
-        return this.transactionsService.create(createTransactionDto);
+    create(
+        @CurrentUser() user: AuthUser,
+        @Body() createTransactionDto: CreateTransactionDto,
+    ) {
+        return this.transactionsService.create(user.id, createTransactionDto);
     }
 
     @Get()
-    findAll(@Query('user_id') userId?: string) {
-        return this.transactionsService.findAll(
-            userId ? Number(userId) : undefined,
-        );
+    findAll(@CurrentUser() user: AuthUser) {
+        return this.transactionsService.findAll(user.id);
+    }
+
+    @Get(':id')
+    findOne(
+        @CurrentUser() user: AuthUser,
+        @Param('id', ParseIntPipe) id: number,
+    ) {
+        return this.transactionsService.findOne(user.id, id);
     }
 
     @Patch(':id')
     update(
-        @Param('id') id: string,
+        @CurrentUser() user: AuthUser,
+        @Param('id', ParseIntPipe) id: number,
         @Body() updateTransactionDto: UpdateTransactionDto,
     ) {
         return this.transactionsService.update(
-            Number(id),
+            user.id,
+            id,
             updateTransactionDto,
         );
     }
 
     @Delete(':id')
-    remove(@Param('id') id: string) {
-        return this.transactionsService.remove(Number(id));
+    @HttpCode(204)
+    remove(
+        @CurrentUser() user: AuthUser,
+        @Param('id', ParseIntPipe) id: number,
+    ) {
+        return this.transactionsService.remove(user.id, id);
     }
 }
