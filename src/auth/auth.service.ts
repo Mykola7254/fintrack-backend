@@ -105,6 +105,8 @@ export class AuthService {
             id: user.id,
             full_name: user.full_name,
             email: user.email,
+            phone: user.phone,
+            default_currency: user.default_currency,
             created_at: user.created_at,
         };
     }
