@@ -1,34 +1,50 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { CreateTransactionDto } from './dto/create-transaction.dto.js';
 import { UpdateTransactionDto } from './dto/update-transaction.dto.js';
 import { Transaction } from './entities/transaction.entity.js';
+import { Account } from '../accounts/entities/account.entity.js';
 
 @Injectable()
 export class TransactionsService {
     constructor(
         @InjectRepository(Transaction)
         private readonly transactionsRepository: Repository<Transaction>,
+        private readonly dataSource: DataSource,
     ) {}
 
     async create(
         userId: number,
         createTransactionDto: CreateTransactionDto,
     ): Promise<Transaction> {
-        const transaction = this.transactionsRepository.create({
-            user_id: userId,
-            account_id: createTransactionDto.account_id,
-            category_id: createTransactionDto.category_id,
-            amount: createTransactionDto.amount.toString(),
-            type: createTransactionDto.type,
-            transaction_date: createTransactionDto.transaction_date
-                ? new Date(createTransactionDto.transaction_date)
-                : new Date(),
-            comment: createTransactionDto.comment,
+        const id = await this.dataSource.transaction(async (manager) => {
+            await this.assertAccountOwned(
+                manager,
+                userId,
+                createTransactionDto.account_id,
+            );
+
+            const transaction = manager.create(Transaction, {
+                user_id: userId,
+                account_id: createTransactionDto.account_id,
+                category_id: createTransactionDto.category_id,
+                amount: createTransactionDto.amount.toString(),
+                type: createTransactionDto.type,
+                transaction_date: createTransactionDto.transaction_date
+                    ? new Date(createTransactionDto.transaction_date)
+                    : new Date(),
+                comment: createTransactionDto.comment,
+            });
+
+            const saved = await manager.save(transaction);
+
+            await this.applyToBalance(manager, saved, 1);
+
+            return saved.id;
         });
 
-        return this.transactionsRepository.save(transaction);
+        return this.findOne(userId, id);
     }
 
     async findAll(userId: number): Promise<Transaction[]> {
@@ -55,42 +71,105 @@ export class TransactionsService {
         id: number,
         updateTransactionDto: UpdateTransactionDto,
     ): Promise<Transaction> {
-        const transaction = await this.findOne(userId, id);
+        await this.dataSource.transaction(async (manager) => {
+            const transaction = await this.findOwned(manager, userId, id);
 
-        if (updateTransactionDto.account_id !== undefined) {
-            transaction.account_id = updateTransactionDto.account_id;
-        }
+            // Відкочуємо старий вплив на баланс, потім застосовуємо новий
+            await this.applyToBalance(manager, transaction, -1);
 
-        if (updateTransactionDto.category_id !== undefined) {
-            transaction.category_id = updateTransactionDto.category_id;
-        }
+            if (updateTransactionDto.account_id !== undefined) {
+                await this.assertAccountOwned(
+                    manager,
+                    userId,
+                    updateTransactionDto.account_id,
+                );
+                transaction.account_id = updateTransactionDto.account_id;
+            }
 
-        if (updateTransactionDto.amount !== undefined) {
-            transaction.amount = updateTransactionDto.amount.toString();
-        }
+            if (updateTransactionDto.category_id !== undefined) {
+                transaction.category_id = updateTransactionDto.category_id;
+            }
 
-        if (updateTransactionDto.type !== undefined) {
-            transaction.type = updateTransactionDto.type;
-        }
+            if (updateTransactionDto.amount !== undefined) {
+                transaction.amount = updateTransactionDto.amount.toString();
+            }
 
-        if (updateTransactionDto.transaction_date !== undefined) {
-            transaction.transaction_date = new Date(
-                updateTransactionDto.transaction_date,
-            );
-        }
+            if (updateTransactionDto.type !== undefined) {
+                transaction.type = updateTransactionDto.type;
+            }
 
-        if (updateTransactionDto.comment !== undefined) {
-            transaction.comment = updateTransactionDto.comment;
-        }
+            if (updateTransactionDto.transaction_date !== undefined) {
+                transaction.transaction_date = new Date(
+                    updateTransactionDto.transaction_date,
+                );
+            }
 
-        await this.transactionsRepository.save(transaction);
+            if (updateTransactionDto.comment !== undefined) {
+                transaction.comment = updateTransactionDto.comment;
+            }
+
+            await manager.save(transaction);
+
+            await this.applyToBalance(manager, transaction, 1);
+        });
 
         return this.findOne(userId, id);
     }
 
     async remove(userId: number, id: number): Promise<void> {
-        const transaction = await this.findOne(userId, id);
+        await this.dataSource.transaction(async (manager) => {
+            const transaction = await this.findOwned(manager, userId, id);
 
-        await this.transactionsRepository.remove(transaction);
+            await this.applyToBalance(manager, transaction, -1);
+
+            await manager.remove(transaction);
+        });
+    }
+
+    private async findOwned(
+        manager: EntityManager,
+        userId: number,
+        id: number,
+    ): Promise<Transaction> {
+        const transaction = await manager.findOne(Transaction, {
+            where: { id, user_id: userId },
+        });
+
+        if (!transaction) {
+            throw new NotFoundException('Transaction not found');
+        }
+
+        return transaction;
+    }
+
+    private async assertAccountOwned(
+        manager: EntityManager,
+        userId: number,
+        accountId: number,
+    ): Promise<void> {
+        const exists = await manager.exists(Account, {
+            where: { id: accountId, user_id: userId },
+        });
+
+        if (!exists) {
+            throw new NotFoundException('Account not found');
+        }
+    }
+
+    // sign = 1 застосовує транзакцію до балансу, sign = -1 відкочує
+    private async applyToBalance(
+        manager: EntityManager,
+        transaction: Transaction,
+        sign: 1 | -1,
+    ): Promise<void> {
+        const direction = transaction.type === 'income' ? 1 : -1;
+        const delta = (Number(transaction.amount) * direction * sign).toFixed(2);
+
+        await manager.increment(
+            Account,
+            { id: transaction.account_id },
+            'balance',
+            delta,
+        );
     }
 }

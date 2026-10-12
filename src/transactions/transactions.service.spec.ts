@@ -1,4 +1,5 @@
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Transaction } from './entities/transaction.entity.js';
 import { TransactionsService } from './transactions.service.js';
@@ -12,6 +13,10 @@ describe('TransactionsService', () => {
         TransactionsService,
         {
           provide: getRepositoryToken(Transaction),
+          useValue: {},
+        },
+        {
+          provide: DataSource,
           useValue: {},
         },
       ],
